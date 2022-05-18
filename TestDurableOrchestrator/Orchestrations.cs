@@ -135,33 +135,38 @@ namespace TestDurableOrchestrator
                 output.NextExcecution = task.NextExecution.Value;
                 context.SetCustomStatus(output);
 
-                try
+
+                using (var cts = new CancellationTokenSource())
                 {
-                    await context.CreateTimer(task.NextExecution.Value, tokens[poolName].Token);
+                    Task sleepingTask = context.CreateTimer(task.NextExecution.Value, output, cts.Token);
+                    Task timeoutTask = context.WaitForExternalEvent("stop");
 
-                    if (!context.IsReplaying)
-                        Console.WriteLine($"{context.InstanceId}: Waited {poolName} : {task.TaskName}");
-                }
-                catch (OperationCanceledException)
-                {
-                    if (!context.IsReplaying)
-                        Console.WriteLine($"{context.InstanceId}: wait cancelled {poolName} : {task.TaskName}");
+                    Task winner = await Task.WhenAny(sleepingTask, timeoutTask);
+                    if (winner == sleepingTask)
+                    {
+                        // success case
+                        cts.Cancel();
 
-                    output.Message = "Operation cancelled while sleeping";
-                    output.NextExcecution = null;
-                    context.SetCustomStatus(output);
+                        // Can continue
+                    }
+                    else
+                    {
+                        if (!context.IsReplaying)
+                            Console.WriteLine($"{context.InstanceId}: wait cancelled {poolName} : {task.TaskName}");
 
-                    // If the watchdog has been cancelled, we need to telle the pool the task is cancelled
-                    // ACTIVITIES CAN BE CALLED IN A CATCH ? IT IS NOT REPLAYABLE...
-                    //var ok = await context.CallActivityAsync<bool>(nameof(Activities.CancelExecutingTask), poolName);
+                        output.Message = "Operation cancelled while sleeping";
+                        output.NextExcecution = null;
+                        context.SetCustomStatus(output);
 
-                    if (!context.IsReplaying)
-                        Console.WriteLine($"{context.InstanceId}: task correctly canceled {poolName} : {task.TaskName}");
+                        // If the watchdog has been cancelled, we need to telle the pool the task is cancelled
+                        var ok = await context.CallActivityAsync<bool>(nameof(Activities.CancelExecutingTask), poolName);
 
-                    // Stop the watchdog
-                    return;
+                        if (!context.IsReplaying)
+                            Console.WriteLine($"{context.InstanceId}: task correctly canceled {poolName} : {task.TaskName}");
 
-                    // After this line, the CustomStatus has not changed, and the orchestration is still in running state
+                        // Stop the watchdog
+                        return;
+                    }
                 }
             }
             else
@@ -188,17 +193,27 @@ namespace TestDurableOrchestrator
             output.CurrentTask = null;
             context.SetCustomStatus(output);
 
-            try
+
+            using (var cts = new CancellationTokenSource())
             {
-                await context.CreateTimer(nextTask, tokens[poolName].Token);
-            }
-            catch (OperationCanceledException)
-            {
-                // Same here if we need to cancel
-                output.Message = "Operation cancelled";
-                output.NextExcecution = null;
-                context.SetCustomStatus(output);
-                return;
+                Task sleepingTask = context.CreateTimer(nextTask, output, cts.Token);
+                Task timeoutTask = context.WaitForExternalEvent("stop");
+
+                Task winner = await Task.WhenAny(sleepingTask, timeoutTask);
+                if (winner == sleepingTask)
+                {
+                    // success case
+                    cts.Cancel();
+
+                    // Can continue
+                }
+                else
+                {
+                    output.Message = "Operation cancelled";
+                    output.NextExcecution = null;
+                    context.SetCustomStatus(output);
+                    return;
+                }
             }
 
             if (!context.IsReplaying)

@@ -90,6 +90,8 @@ namespace TestDurableOrchestrator
             || existingInstance.RuntimeStatus == OrchestrationRuntimeStatus.Failed
             || existingInstance.RuntimeStatus == OrchestrationRuntimeStatus.Terminated)
             {
+                var instanceId = $"{WatchdogScrapingFunctionId}_{taskName}:wd";
+                await starter.RaiseEventAsync(instanceId, "stop");
                 await starter.StartNewAsync(nameof(Orchestrations.StopWatchdog), id, taskName);
                 return new OkObjectResult("Watchdog stoping");
             }
