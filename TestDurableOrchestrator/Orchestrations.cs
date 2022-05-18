@@ -144,13 +144,11 @@ namespace TestDurableOrchestrator
                     Task winner = await Task.WhenAny(sleepingTask, timeoutTask);
                     if (winner == sleepingTask)
                     {
-                        // success case
-                        cts.Cancel();
 
-                        // Can continue
                     }
                     else
                     {
+                        cts.Cancel();
                         if (!context.IsReplaying)
                             Console.WriteLine($"{context.InstanceId}: wait cancelled {poolName} : {task.TaskName}");
 
@@ -202,13 +200,10 @@ namespace TestDurableOrchestrator
                 Task winner = await Task.WhenAny(sleepingTask, timeoutTask);
                 if (winner == sleepingTask)
                 {
-                    // success case
-                    cts.Cancel();
-
-                    // Can continue
                 }
                 else
                 {
+                    cts.Cancel();
                     output.Message = "Operation cancelled";
                     output.NextExcecution = null;
                     context.SetCustomStatus(output);
