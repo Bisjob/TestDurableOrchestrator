@@ -33,6 +33,27 @@ namespace TestDurableOrchestrator
             return new OkResult();
         }
 
+        [FunctionName(nameof(TerminateAllOrchestration))]
+        public async Task<IActionResult> TerminateAllOrchestration(
+            [HttpTrigger(AuthorizationLevel.Function, "post")] HttpRequest req,
+            [DurableClient] IDurableOrchestrationClient starter)
+        {
+            Contract.Assume(starter != null);
+            var tasks = await starter.GetStatusAsync();
+            foreach (var t in tasks)
+            {
+                try
+                {
+                    await starter.TerminateAsync(t.InstanceId, "Terminate all");
+                }
+                catch
+                {
+
+                }
+            }
+            return new OkResult();
+        }
+
         [FunctionName(nameof(StartWatchdogTrigger))]
         public async Task<IActionResult> StartWatchdogTrigger(
             [HttpTrigger(AuthorizationLevel.Function, "post", Route = "StartWatchdog")] HttpRequest request,
