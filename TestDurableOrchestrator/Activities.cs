@@ -94,8 +94,8 @@ namespace TestDurableOrchestrator
             return true;
         }
 
-        [FunctionName(nameof(ExecuteResearchActivity))]
-        public async Task<bool> ExecuteResearchActivity([ActivityTrigger] string taskName)
+        [FunctionName(nameof(ExecuteTaskActivity))]
+        public async Task<bool> ExecuteTaskActivity([ActivityTrigger] string taskName)
         {
             if (string.IsNullOrWhiteSpace(taskName))
                 throw new ArgumentNullException(nameof(taskName));
